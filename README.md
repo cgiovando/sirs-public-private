@@ -2,6 +2,8 @@
 
 Per-school public-vs-private ownership classifier for the SIRS (School Infrastructure Risk Screening) workstream. Pilot country is Benin; the architecture is designed to extend to Niger, Mali, Guinea, and Ghana with per-country rule files.
 
+**Live dashboard:** https://cgiovando.github.io/sirs-public-private/ &nbsp;·&nbsp; **Methodology:** [`methodology.md`](methodology.md)
+
 ## Why this exists
 
 The Bank funds public infrastructure. Vulnerability rollups against the "public school stock" need to know which schools are actually public; misclassifying a private school as public inflates the public-stock denominator. Existing school-location datasets (Giga, OpenStreetMap, national EMIS exports) carry public/private signal inconsistently - some have explicit tags, most don't. This project derives a calibrated `ownership_label` per school with an explicit `unknown` band, optimised for high precision on the `private` flag.
@@ -63,7 +65,7 @@ Stage B and Stage C entry points are in `stage-b-features/build_matrix.py` and `
 
 ## Dashboard
 
-A MapLibre dashboard lives in [`docs/webmap/`](docs/webmap/) and is published via GitHub Pages. It lets you click any school to see its label, model probability, audit trail, and the rule(s) that fired. Three view modes: rules-only, rules+model, population-aware. The Benin dataset (~9,200 schools) is bundled directly into the page as GeoJSON.
+A MapLibre dashboard lives in [`docs/webmap/`](docs/webmap/) and is published via GitHub Pages at **https://cgiovando.github.io/sirs-public-private/**. It lets you click any school to see its label, model probability, audit trail, and the rule(s) that fired. Three view modes: rules-only, rules+model, population-aware. The Benin dataset (~9,200 schools) is bundled directly into the page as GeoJSON.
 
 ## Data sources
 

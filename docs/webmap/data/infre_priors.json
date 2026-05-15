@@ -1,0 +1,86 @@
+[
+  {
+    "department": "Littoral",
+    "private_share": 0.698005698005698,
+    "n_schools_total": 702,
+    "n_schools_public": 212,
+    "n_schools_private": 490
+  },
+  {
+    "department": "Atlanique",
+    "private_share": 0.6381176470588236,
+    "n_schools_total": 2125,
+    "n_schools_public": 769,
+    "n_schools_private": 1356
+  },
+  {
+    "department": "Oueme",
+    "private_share": 0.607545045045045,
+    "n_schools_total": 1776,
+    "n_schools_public": 697,
+    "n_schools_private": 1079
+  },
+  {
+    "department": "Plateau",
+    "private_share": 0.2905982905982906,
+    "n_schools_total": 702,
+    "n_schools_public": 498,
+    "n_schools_private": 204
+  },
+  {
+    "department": "Zou",
+    "private_share": 0.23980099502487562,
+    "n_schools_total": 1005,
+    "n_schools_public": 764,
+    "n_schools_private": 241
+  },
+  {
+    "department": "Borgou",
+    "private_share": 0.23813559322033898,
+    "n_schools_total": 1180,
+    "n_schools_public": 899,
+    "n_schools_private": 281
+  },
+  {
+    "department": "Mono",
+    "private_share": 0.23501577287066247,
+    "n_schools_total": 634,
+    "n_schools_public": 485,
+    "n_schools_private": 149
+  },
+  {
+    "department": "Collines",
+    "private_share": 0.1397984886649874,
+    "n_schools_total": 794,
+    "n_schools_public": 683,
+    "n_schools_private": 111
+  },
+  {
+    "department": "Kouffo",
+    "private_share": 0.13596491228070176,
+    "n_schools_total": 684,
+    "n_schools_public": 591,
+    "n_schools_private": 93
+  },
+  {
+    "department": "Donga",
+    "private_share": 0.13001605136436598,
+    "n_schools_total": 623,
+    "n_schools_public": 542,
+    "n_schools_private": 81
+  },
+  {
+    "department": "Atakora",
+    "private_share": 0.12035010940919037,
+    "n_schools_total": 914,
+    "n_schools_public": 804,
+    "n_schools_private": 110
+  },
+  {
+    "department": "Alibori",
+    "private_share": 0.11949685534591195,
+    "n_schools_total": 636,
+    "n_schools_public": 560,
+    "n_schools_private": 76
+  }
+]

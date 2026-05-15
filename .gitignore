@@ -1,0 +1,49 @@
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Data - never commit raw inputs or model outputs
+data/inputs/
+data/derived/
+data/cache/
+*.geojson.gz
+*.parquet
+*.gpkg
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.tox/
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Node (if any frontend gets added)
+node_modules/
+dist/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local notes / drafts that aren't ready to share
+DRAFT_*.md
+SCRATCH/
+
+# Timesheet log (local only)
+.timesheet-log.md
+
+# Allow templates and small reference samples explicitly via -f if needed

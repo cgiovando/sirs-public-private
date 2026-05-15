@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIRS public/private classifier - Benin pilot webmap</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css">
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #1a1d27;
+    --panel-2: #232733;
+    --fg: #e9eaee;
+    --fg-muted: #a0a6b3;
+    --rule: #2c2f3a;
+    --accent: #d73f3f;
+    --public: #4f9bda;
+    --private-secular: #d73f3f;
+    --private-religious: #b664d9;
+    --private-model: #f7a55c;
+    --public-model: #6dbf6d;
+    --uncertain: #d4a017;
+    --unknown: #6b7280;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif; }
+  #map { position: absolute; top: 0; left: 320px; right: 0; bottom: 0; }
+
+  .sidebar {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 320px;
+    background: var(--panel); border-right: 1px solid var(--rule);
+    overflow-y: auto; padding: 18px 18px 24px; font-size: 13px; line-height: 1.5;
+    z-index: 2;
+  }
+  .sidebar h1 { font-size: 16px; margin: 0 0 4px; letter-spacing: -0.005em; }
+  .sidebar .subtitle { font-size: 12px; color: var(--fg-muted); margin-bottom: 18px; }
+  .sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--fg-muted); font-weight: 600; margin: 22px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+
+  .seg { display: flex; gap: 0; background: var(--panel-2); border-radius: 6px; padding: 3px; margin-bottom: 10px; }
+  .seg button {
+    flex: 1; background: transparent; border: 0; color: var(--fg-muted);
+    padding: 6px 8px; font-size: 12px; cursor: pointer; border-radius: 4px;
+    transition: background 0.12s, color 0.12s;
+  }
+  .seg button:hover { color: var(--fg); }
+  .seg button.active { background: var(--accent); color: white; }
+
+  .legend { display: grid; grid-template-columns: 18px 1fr auto; gap: 6px 10px; align-items: center; }
+  .legend .swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.3); }
+  .legend .lbl { color: var(--fg); font-size: 12.5px; }
+  .legend .ct { color: var(--fg-muted); font-variant-numeric: tabular-nums; font-size: 11.5px; }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; }
+  .stat .v { font-size: 16px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 10.5px; color: var(--fg-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .filter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+  .filter-row label { color: var(--fg-muted); flex: 1; }
+  .filter-row input[type="checkbox"] { accent-color: var(--accent); }
+
+  .maplibregl-popup-content { background: var(--panel); color: var(--fg); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; font-size: 12.5px; line-height: 1.5; max-width: 320px; }
+  .maplibregl-popup-tip { border-top-color: var(--rule); border-bottom-color: var(--rule); }
+  .popup-name { font-size: 13.5px; font-weight: 700; margin: 0 0 6px; }
+  .popup-grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; }
+  .popup-grid .k { color: var(--fg-muted); }
+  .popup-grid .v { color: var(--fg); }
+  .popup-audit { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); color: var(--fg-muted); font-size: 11.5px; font-style: italic; }
+  .popup-pill { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+
+  .footer { position: absolute; bottom: 8px; right: 12px; z-index: 3; background: rgba(15,17,23,0.85); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 12px; font-size: 11.5px; color: var(--fg-muted); }
+  .footer code { color: var(--fg); }
+
+  .infre-badge { background: var(--panel-2); border: 1px solid var(--rule); border-radius: 6px; padding: 9px 11px; margin-top: 8px; font-size: 11.5px; color: var(--fg-muted); }
+  .infre-badge .infre-num { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  details { margin-top: 12px; }
+  details summary { cursor: pointer; color: var(--fg-muted); font-size: 11.5px; padding: 4px 0; }
+  details summary:hover { color: var(--fg); }
+  .audit-trail { font-size: 11px; line-height: 1.4; padding: 8px; background: #0a0c12; border-radius: 4px; margin-top: 6px; max-height: 220px; overflow-y: auto; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <h1>SIRS public/private</h1>
+  <div class="subtitle">Benin pilot - 9,269 schools labelled</div>
+
+  <h2>Colour by</h2>
+  <div class="seg" id="mode-seg">
+    <button data-mode="rules" class="active">Rules only</button>
+    <button data-mode="final">Rules + model</button>
+    <button data-mode="adj">Population-aware</button>
+  </div>
+
+  <h2>Filters</h2>
+  <div class="filter-row"><label>Show public</label><input type="checkbox" id="f-pub" checked></div>
+  <div class="filter-row"><label>Show private</label><input type="checkbox" id="f-priv" checked></div>
+  <div class="filter-row"><label>Show uncertain / unknown</label><input type="checkbox" id="f-unk" checked></div>
+  <div class="filter-row"><label>Department boundaries</label><input type="checkbox" id="f-bound" checked></div>
+
+  <h2>Counts in current view</h2>
+  <div class="stat-grid">
+    <div class="stat"><div class="v" id="ct-total">-</div><div class="l">total</div></div>
+    <div class="stat"><div class="v" id="ct-priv">-</div><div class="l">private</div></div>
+    <div class="stat"><div class="v" id="ct-pub">-</div><div class="l">public</div></div>
+    <div class="stat"><div class="v" id="ct-unk">-</div><div class="l">uncertain</div></div>
+  </div>
+
+  <h2>Legend</h2>
+  <div class="legend" id="legend"></div>
+
+  <h2>INFRE 2021-22 reference</h2>
+  <div class="infre-badge" id="infre-badge">National private share, primary: <span class="infre-num">36.3%</span><br>Click any department on the map for the local figure.</div>
+
+  <details>
+    <summary>About this map</summary>
+    <p style="font-size:12px; color: var(--fg-muted); margin: 8px 0;">
+    Built from the SIRS public/private classifier pilot for Benin. Three views:
+    </p>
+    <ul style="font-size:12px; color: var(--fg-muted); margin: 4px 0 8px 16px; padding: 0;">
+      <li><strong>Rules only</strong> - deterministic name and tag rules.</li>
+      <li><strong>Rules + model</strong> - rules plus the geography model filling in unknowns, conservative threshold.</li>
+      <li><strong>Population-aware</strong> - same as above, with each department rebalanced to match the INFRE 2021-22 private rate.</li>
+    </ul>
+  </details>
+
+</aside>
+
+<div id="map"></div>
+<div class="footer">SIRS public/private - Benin pilot - <code>2026-05-01</code></div>
+
+<script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+<script>
+const COLORS = {
+  "public": "#4f9bda",
+  "public-model": "#6dbf6d",
+  "private-secular": "#d73f3f",
+  "private-religious": "#b664d9",
+  "community": "#2ca02c",
+  "private-model": "#f7a55c",
+  "uncertain": "#d4a017",
+  "unknown": "#6b7280",
+};
+const PRIVATE_LABELS = new Set(["private-secular","private-religious","community","private-model"]);
+const PUBLIC_LABELS = new Set(["public","public-model"]);
+
+const MODES = {
+  rules: { col: "ownership_label", label: "Rules-only label", order: ["public","private-secular","private-religious","community","unknown"] },
+  final: { col: "ownership_final", label: "Rules + model (conservative)", order: ["public","public-model","private-secular","private-religious","community","private-model","uncertain"] },
+  adj: { col: "ownership_final_adj", label: "Rules + model (population-aware)", order: ["public","public-model","private-secular","private-religious","community","private-model","uncertain"] },
+};
+
+let mode = "rules";
+let schoolsData = null;
+let infrePriors = {};
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: {
+    version: 8,
+    sources: {
+      "carto-dark": {
+        type: "raster",
+        tiles: [
+          "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+          "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+          "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+        ],
+        tileSize: 256,
+        attribution: "© OpenStreetMap contributors, © CARTO",
+      },
+    },
+    layers: [{ id: "carto-dark", type: "raster", source: "carto-dark" }],
+  },
+  center: [2.3, 9.3],
+  zoom: 6.4,
+  maxZoom: 18,
+});
+
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), "top-right");
+map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
+
+map.on("load", async () => {
+  const [schools, adm1, infre] = await Promise.all([
+    fetch("data/schools.geojson").then(r => r.json()),
+    fetch("data/ben_adm1.geojson").then(r => r.json()),
+    fetch("data/infre_priors.json").then(r => r.json()),
+  ]);
+  schoolsData = schools;
+  for (const r of infre) infrePriors[r.department] = r;
+
+  // Department boundaries.
+  map.addSource("adm1", { type: "geojson", data: adm1 });
+  map.addLayer({
+    id: "adm1-fill", type: "fill", source: "adm1",
+    paint: {
+      "fill-color": [
+        "match",
+        ["get", "shapeName"],
+        "Littoral", "rgba(215,63,63,0.10)",
+        "Atlanique", "rgba(215,63,63,0.08)",
+        "Oueme", "rgba(215,63,63,0.07)",
+        "rgba(0,0,0,0)",
+      ],
+      "fill-outline-color": "rgba(0,0,0,0)",
+    },
+  });
+  map.addLayer({
+    id: "adm1-line", type: "line", source: "adm1",
+    paint: { "line-color": "#5a6273", "line-width": 0.7, "line-opacity": 0.8 },
+  });
+  map.addLayer({
+    id: "adm1-label", type: "symbol", source: "adm1",
+    layout: {
+      "text-field": ["get", "shapeName"],
+      "text-size": 11,
+      "text-letter-spacing": 0.06,
+      "text-transform": "uppercase",
+    },
+    paint: { "text-color": "#9aa2b1", "text-halo-color": "#0f1117", "text-halo-width": 1 },
+  });
+
+  // School points.
+  map.addSource("schools", { type: "geojson", data: schools });
+  addSchoolLayer();
+
+  // Click handlers.
+  map.on("click", "schools", onSchoolClick);
+  map.on("mouseenter", "schools", () => (map.getCanvas().style.cursor = "pointer"));
+  map.on("mouseleave", "schools", () => (map.getCanvas().style.cursor = ""));
+
+  map.on("click", "adm1-fill", onDeptClick);
+
+  updateCounts();
+  updateLegend();
+});
+
+function colorExpression() {
+  const col = MODES[mode].col;
+  const order = MODES[mode].order;
+  const expr = ["match", ["get", col]];
+  for (const k of order) {
+    expr.push(k, COLORS[k] || "#888");
+  }
+  expr.push("#666");
+  return expr;
+}
+
+function filterExpression() {
+  const showPub = document.getElementById("f-pub").checked;
+  const showPriv = document.getElementById("f-priv").checked;
+  const showUnk = document.getElementById("f-unk").checked;
+  const col = MODES[mode].col;
+  const allowed = [];
+  if (showPub) allowed.push("public", "public-model");
+  if (showPriv) allowed.push("private-secular","private-religious","community","private-model");
+  if (showUnk) allowed.push("uncertain","unknown");
+  if (!allowed.length) return ["==", ["literal", true], false];
+  return ["match", ["get", col], allowed, true, false];
+}
+
+function addSchoolLayer() {
+  if (map.getLayer("schools")) map.removeLayer("schools");
+  map.addLayer({
+    id: "schools", type: "circle", source: "schools",
+    paint: {
+      "circle-color": colorExpression(),
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 1.6, 8, 2.5, 11, 5, 14, 8],
+      "circle-stroke-color": "rgba(0,0,0,0.6)",
+      "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 5, 0, 11, 0.4, 14, 0.8],
+      "circle-opacity": 0.9,
+    },
+    filter: filterExpression(),
+  });
+}
+
+function onSchoolClick(e) {
+  const f = e.features[0];
+  const p = f.properties;
+  const col = MODES[mode].col;
+  const lab = p[col] || p.ownership_label || "unknown";
+  const color = COLORS[lab] || "#888";
+  const probAdj = (p.stage_c_p_private_adj === null || p.stage_c_p_private_adj === undefined) ? null : Number(p.stage_c_p_private_adj);
+  const probRaw = (p.stage_c_p_private === null || p.stage_c_p_private === undefined) ? null : Number(p.stage_c_p_private);
+  const dept = p.adm1 || "(no department match)";
+  const infre = infrePriors[dept];
+  const html = `
+    <div class="popup-name">${p.name || "(no name)"}</div>
+    <div class="popup-grid">
+      <span class="k">Department</span><span class="v">${dept}</span>
+      <span class="k">Level</span><span class="v">${p.level || "-"}</span>
+      <span class="k">Source</span><span class="v">${p.join_source || "-"}</span>
+      <span class="k">Label</span><span class="v"><span class="popup-pill" style="background:${color};color:white">${lab}</span></span>
+      <span class="k">Confidence</span><span class="v">${p.ownership_confidence || "-"}</span>
+      ${probRaw !== null ? `<span class="k">p(private)</span><span class="v">${probRaw.toFixed(3)} (raw) &middot; ${probAdj !== null ? probAdj.toFixed(3) : "-"} (rebalanced)</span>` : ""}
+      ${infre ? `<span class="k">INFRE rate</span><span class="v">${(infre.private_share*100).toFixed(0)}% private (dept primary)</span>` : ""}
+      ${p.model_agreement && p.model_agreement !== "n/a" && p.model_agreement !== "ok" ? `<span class="k">Model</span><span class="v" style="color:#f7a55c">${p.model_agreement}</span>` : ""}
+    </div>
+    ${p.audit ? `<div class="popup-audit">${p.audit}</div>` : ""}
+  `;
+  new maplibregl.Popup({ closeButton: true, maxWidth: "360px" })
+    .setLngLat(e.lngLat)
+    .setHTML(html)
+    .addTo(map);
+}
+
+function onDeptClick(e) {
+  const dept = e.features[0].properties.shapeName;
+  const infre = infrePriors[dept];
+  if (!infre) return;
+  const html = `
+    <div class="popup-name">${dept}</div>
+    <div class="popup-grid">
+      <span class="k">INFRE primary total</span><span class="v">${infre.n_schools_total.toLocaleString()}</span>
+      <span class="k">INFRE public</span><span class="v">${infre.n_schools_public.toLocaleString()}</span>
+      <span class="k">INFRE private</span><span class="v">${infre.n_schools_private.toLocaleString()} (<strong>${(infre.private_share*100).toFixed(1)}%</strong>)</span>
+    </div>
+    <div class="popup-audit">2021-22 INFRE annuaire statistique, primary education only.</div>
+  `;
+  new maplibregl.Popup({ closeButton: true, maxWidth: "320px" })
+    .setLngLat(e.lngLat)
+    .setHTML(html)
+    .addTo(map);
+}
+
+function updateCounts() {
+  if (!schoolsData) return;
+  const col = MODES[mode].col;
+  const showPub = document.getElementById("f-pub").checked;
+  const showPriv = document.getElementById("f-priv").checked;
+  const showUnk = document.getElementById("f-unk").checked;
+  let total = 0, priv = 0, pub = 0, unk = 0;
+  for (const f of schoolsData.features) {
+    const lab = f.properties[col] || f.properties.ownership_label;
+    const isPriv = PRIVATE_LABELS.has(lab);
+    const isPub = PUBLIC_LABELS.has(lab);
+    const isUnk = lab === "uncertain" || lab === "unknown";
+    if (isPriv && !showPriv) continue;
+    if (isPub && !showPub) continue;
+    if (isUnk && !showUnk) continue;
+    total++;
+    if (isPriv) priv++;
+    else if (isPub) pub++;
+    else unk++;
+  }
+  document.getElementById("ct-total").textContent = total.toLocaleString();
+  document.getElementById("ct-priv").textContent = priv.toLocaleString();
+  document.getElementById("ct-pub").textContent = pub.toLocaleString();
+  document.getElementById("ct-unk").textContent = unk.toLocaleString();
+}
+
+function updateLegend() {
+  if (!schoolsData) return;
+  const col = MODES[mode].col;
+  const order = MODES[mode].order;
+  const counts = {};
+  for (const f of schoolsData.features) {
+    const lab = f.properties[col] || f.properties.ownership_label;
+    counts[lab] = (counts[lab] || 0) + 1;
+  }
+  const rows = [];
+  for (const k of order) {
+    if (!counts[k]) continue;
+    rows.push(`<div class="swatch" style="background:${COLORS[k] || "#666"}"></div><div class="lbl">${k}</div><div class="ct">${counts[k].toLocaleString()}</div>`);
+  }
+  document.getElementById("legend").innerHTML = rows.join("");
+}
+
+// Mode switcher
+document.getElementById("mode-seg").addEventListener("click", (e) => {
+  if (e.target.tagName !== "BUTTON") return;
+  document.querySelectorAll("#mode-seg button").forEach((b) => b.classList.remove("active"));
+  e.target.classList.add("active");
+  mode = e.target.dataset.mode;
+  if (map.getLayer("schools")) {
+    map.setPaintProperty("schools", "circle-color", colorExpression());
+  }
+  updateCounts();
+  updateLegend();
+});
+
+// Filter checkboxes
+for (const id of ["f-pub","f-priv","f-unk"]) {
+  document.getElementById(id).addEventListener("change", () => {
+    if (map.getLayer("schools")) map.setFilter("schools", filterExpression());
+    updateCounts();
+  });
+}
+document.getElementById("f-bound").addEventListener("change", (e) => {
+  const v = e.target.checked ? "visible" : "none";
+  for (const id of ["adm1-fill","adm1-line","adm1-label"]) {
+    if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v);
+  }
+});
+</script>
+</body>
+</html>

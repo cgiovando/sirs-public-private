@@ -1,0 +1,418 @@
+# Benin Stage A rules (v0.1, 2026-04-30)
+#
+# Reading order:
+#   1. OSM tag rules (highest precision when present)
+#   2. Public name templates (high recall on Giga export)
+#   3. Private secular templates (mostly via OSM augmentation)
+#   4. Private religious templates
+#
+# Conflict resolution is in label.py (high beats medium beats low; high vs high
+# disagreement -> unknown).
+#
+# Caveats specific to Benin (see docs/parent-brief.md for the full set):
+# - `Complexe scolaire` is a private secular signal in Benin (unlike `Lycée`).
+# - `CEG` is always public secondary even when named after a saint
+#   (e.g. CEG SAINTE RITA in Cotonou is public). The CEG rule is intentionally
+#   placed before any saint-name rule and is high confidence.
+# - Catholic naming over-calls. Without an EMIS match, surface medium confidence.
+# - Medersa: in Benin these are private; this rule must NOT be reused for Niger
+#   without country-conditional handling.
+# - Maternelle (preschool): in Benin almost universally private. Medium confidence
+#   because Giga export does not contain preschools and OSM coverage is patchy.
+
+countries: [BEN]
+
+rules:
+  # ---------------------------------------------------------------------------
+  # OSM tag rules - high precision when set, but coverage is ~6%
+  # ---------------------------------------------------------------------------
+  - id: osm_op_type_public
+    countries: [BEN]
+    applies_to_field: operator_type
+    match_type: exact
+    pattern: public
+    label: public
+    confidence: high
+    notes: |
+      OSM operator:type=public. Direct mapping.
+    examples_positive: ["public"]
+    examples_negative: ["private", "religious", ""]
+
+  - id: osm_op_type_government
+    countries: [BEN]
+    applies_to_field: operator_type
+    match_type: exact
+    pattern: government
+    label: public
+    confidence: high
+    notes: |
+      OSM operator:type=government. Treated as public; the OSM wiki itself flags
+      that public vs government is poorly delineated, but for SIRS rollups they
+      both go into the public-stock bucket.
+    examples_positive: ["government"]
+    examples_negative: ["public", "private", "religious"]
+
+  - id: osm_op_type_private
+    countries: [BEN]
+    applies_to_field: operator_type
+    match_type: exact
+    pattern: private
+    label: private-secular
+    confidence: high
+    notes: |
+      OSM operator:type=private. If religion is also set, the religion rule will
+      run too; conflict resolution will pick private-religious.
+    examples_positive: ["private"]
+    examples_negative: ["public", "religious"]
+
+  - id: osm_op_type_religious
+    countries: [BEN]
+    applies_to_field: operator_type
+    match_type: exact
+    pattern: religious
+    label: private-religious
+    confidence: high
+    notes: |
+      OSM operator:type=religious. Benin: no public-mission category (that is a
+      Ghana phenomenon), so religious operator -> private-religious.
+    examples_positive: ["religious"]
+    examples_negative: ["public", "private"]
+
+  - id: osm_op_type_community
+    countries: [BEN]
+    applies_to_field: operator_type
+    match_type: exact
+    pattern: community
+    label: community
+    confidence: high
+    notes: |
+      OSM operator:type=community.
+    examples_positive: ["community"]
+    examples_negative: ["public", "private"]
+
+  - id: osm_religion_set
+    countries: [BEN]
+    applies_to_field: religion
+    match_type: regex
+    pattern: '^(christian|muslim|islamic|catholic|protestant)$'
+    case_insensitive: true
+    label: private-religious
+    confidence: medium
+    notes: |
+      OSM religion=* with no operator_type. Medium confidence because some public
+      schools in Benin are colocated with a faith community without being faith-run.
+      "laique" and "multifaith" are excluded from this rule deliberately.
+    examples_positive: ["christian", "muslim", "Catholic"]
+    examples_negative: ["laique", "multifaith", ""]
+
+  # ---------------------------------------------------------------------------
+  # Public name templates (Giga + OSM `name`)
+  # ---------------------------------------------------------------------------
+  - id: name_epp
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '^\s*(EPP|EEP|E\.?P\.?P\.?)\b'
+    case_insensitive: true
+    label: public
+    confidence: high
+    notes: |
+      EPP = École Primaire Publique. The dominant public-primary prefix in the
+      Benin Giga export (4,676 of 7,697 names). EEP is a recurring spelling
+      variant; treated as the same signal.
+    examples_positive:
+      - "EPP COTONOU CENTRE"
+      - "Epp Adjarra"
+      - "EEP SONTA"
+      - "E.P.P. SAVE"
+    examples_negative:
+      - "Complexe scolaire Cotonou"
+      - "CEG 1 ABOMEY"
+      - "Lycée privé Saint-Michel"
+
+  - id: name_ceg_cem
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '^\s*(CEG|CEM)\b'
+    case_insensitive: true
+    label: public
+    confidence: high
+    notes: |
+      CEG = Collège d'Enseignement Général; CEM = Collège d'Enseignement Moyen.
+      Public secondary in Benin. Some carry saint names (e.g. CEG SAINTE RITA,
+      Cotonou) - these are still public-run state colleges.
+    examples_positive:
+      - "CEG 1 ABOMEY"
+      - "CEG ADJARRA"
+      - "CEG SAINTE RITA"
+    examples_negative:
+      - "Complexe scolaire Sainte Rita"
+      - "Lycée privé"
+      - "EPP COTONOU"
+
+  - id: name_ecole_primaire_publique
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '[ÉE]cole\s+(\w+\s+){0,2}publique\b'
+    case_insensitive: true
+    label: public
+    confidence: high
+    notes: |
+      Spelled-out variant. Catches OSM names where Giga uses EPP.
+    examples_positive:
+      - "Ecole Primaire Publique de Djeffa"
+      - "École publique Cotonou Centre"
+      - "ECOLE PRIMAIRE PUBLIQUE HOUEGAMEY A"
+      - "École maternelle publique de mededjonou"
+    examples_negative:
+      - "École privée Cotonou"
+      - "Complexe scolaire Cotonou"
+      - "EPP COTONOU"  # different rule should fire (name_epp), but this regex must not match
+      - "École privée Saint-Michel"
+
+  - id: name_lycee_public
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '^\s*Lyc[ée]e\b(?!.*\b(priv[ée]|sainte?|saint)\b)'
+    case_insensitive: true
+    label: public
+    confidence: medium
+    notes: |
+      Lycée not flagged as private or saint-named. Medium confidence because
+      Lycée Behanzin and Lycée Toffa are public, but "Lycée Saint-Michel" type
+      names are private. Negative lookahead handles the obvious cases; some edge
+      cases will still leak through and need EMIS validation.
+    examples_positive:
+      - "Lycée Behanzin"
+      - "Lycée Toffa Cotonou"
+      - "LYCEE TECHNIQUE COULIBALY"
+    examples_negative:
+      - "Lycée privé Saint-Michel"
+      - "Lycée Sainte Rita"
+      - "Complexe scolaire Lycée des Anges"
+
+  # ---------------------------------------------------------------------------
+  # Private secular name templates (mostly OSM-side)
+  # ---------------------------------------------------------------------------
+  - id: name_complexe_scolaire
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '\bComplexe\s+scolaire\b'
+    case_insensitive: true
+    label: private-secular
+    confidence: high
+    notes: |
+      In Benin, "Complexe scolaire" reliably indicates a private school. 257 of
+      ~2,700 OSM Benin schools carry this prefix. Joined records where Giga
+      "EPP X" matches OSM "Complexe scolaire Y" are flagged as a join conflict
+      by the applier and resolved as unknown.
+    examples_positive:
+      - "Complexe scolaire Abdoulaye Issa"
+      - "COMPLEXE SCOLAIRE AVAGBODJI HOUINTA A"
+      - "Complexe Scolaire Akpakpa Nord"
+    examples_negative:
+      - "EPP COTONOU"
+      - "CEG ADJARRA"
+      - "École Primaire Publique de Djeffa"
+
+  - id: name_groupe_scolaire
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '^\s*Groupe\s+scolaire\b'
+    case_insensitive: true
+    label: private-secular
+    confidence: high
+    notes: |
+      "Groupe scolaire" is a private-secular naming convention (less common in
+      Benin than Niger/Mali but still present).
+    examples_positive:
+      - "Groupe scolaire La Source"
+      - "GROUPE SCOLAIRE LA PEPINIERE"
+    examples_negative:
+      - "EPP CONA"
+      - "Complexe scolaire Test"
+
+  - id: name_ecole_privee
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '[ÉE]cole\s+(\w+\s+){0,2}priv[ée]e?\b|\b[ée]cole\s+priv[ée]e?\b'
+    case_insensitive: true
+    label: private-secular
+    confidence: high
+    notes: |
+      Explicit `école privée` is unambiguous.
+    examples_positive:
+      - "Ecole Primaire Privée KANHONOU"
+      - "École privée Saint-Michel"
+      - "Ecole privée internationale"
+    examples_negative:
+      - "Ecole Primaire Publique"
+      - "EPP Adjarra"
+
+  - id: name_institut
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '^\s*Institut(ion)?\b'
+    case_insensitive: true
+    label: private-secular
+    confidence: medium
+    notes: |
+      `Institut` / `Institution` X is mostly private-secular. Medium because a
+      few public technical institutes also use the prefix.
+    examples_positive:
+      - "Institut Notre Dame"
+      - "Institution Sainte Marie"
+    examples_negative:
+      - "EPP Bohicon"
+      - "CEG Allada"
+
+  - id: name_academie
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '\bAcad[ée]mie\b'
+    case_insensitive: true
+    label: private-secular
+    confidence: medium
+    notes: |
+      `Académie` typically marks a private school (often elite/secondary).
+    examples_positive:
+      - "Académie Solar"
+      - "ACADEMIE BILINGUE COTONOU"
+    examples_negative:
+      - "EPP Toffo"
+      - "Complexe scolaire La Source"
+
+  - id: name_cours_prive
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '\bcours\s+priv[ée]s?\b'
+    case_insensitive: true
+    label: private-secular
+    confidence: high
+    notes: |
+      Self-identifies as private.
+    examples_positive: ["Cours Privé Notre Avenir", "cours prives la pepiniere"]
+    examples_negative: ["EPP", "Complexe scolaire X"]
+
+  - id: name_maternelle
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '^\s*(Jardin\s+d.?\s*enfants|[ÉE]cole\s+maternelle|Maternelle)\b'
+    case_insensitive: true
+    label: private-secular
+    confidence: medium
+    notes: |
+      Pre-primary in Benin is mostly private; the Giga export does not include
+      preschools so this rule mainly fires on OSM-only records.
+    examples_positive:
+      - "École maternelle de Gomè - Sota"
+      - "Maternelle Les Anges"
+      - "Jardin d'enfants Le Petit Prince"
+    examples_negative:
+      - "EPP Cotonou"
+      - "CEG Bohicon"
+
+  # ---------------------------------------------------------------------------
+  # Private religious name templates
+  # ---------------------------------------------------------------------------
+  - id: name_saint
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '(?<!\w)(Saint(e)?|Sts?\.?|Stes?\.?)\s+[A-ZÉÈÀÂÎÏÔÛÇ]'
+    case_insensitive: false
+    label: private-religious
+    confidence: medium
+    notes: |
+      Heuristic: capitalized "Saint X" / "Sainte X" / "Ste. X". Medium confidence
+      because some public schools (CEG SAINTE RITA) are saint-named. The applier
+      breaks ties: a high-confidence public rule (CEG) beats this medium rule.
+      Case-sensitive on purpose to skip random words.
+    examples_positive:
+      - "Complexe scolaire Saint Michel"
+      - "Institution Sainte Marie"
+      - "Ste. Bernadette"
+    examples_negative:
+      - "EPP Toffo"
+      - "saint just a token in the middle"
+      - "CEG ADJARRA"
+
+  - id: name_ecole_catholique
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '\b[ÉE]cole\s+catholique\b|\bcatholique\b'
+    case_insensitive: true
+    label: private-religious
+    confidence: medium
+    notes: |
+      Catholic-named schools in Benin are mostly private; medium confidence
+      because some are publicly subsidised on church land.
+    examples_positive: ["École catholique Notre Dame", "Lycée catholique Saint Augustin"]
+    examples_negative: ["EPP Notre Dame de Cotonou", "CEG Catho-Centre"]
+
+  - id: name_medersa
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '\bM[ée]dersa\b|\bMadras[ah]\b'
+    case_insensitive: true
+    label: private-religious
+    confidence: high
+    notes: |
+      Benin medersas are private. DO NOT REUSE this rule for Niger without
+      country-conditional handling - Niger has both public and private medersas
+      under the franco-arabe school system.
+    examples_positive: ["Médersa Al-Falah", "Madrasa Cotonou"]
+    examples_negative: ["EPP", "CEG Saint-Michel"]
+
+  - id: name_franco_arabe
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '\b[ÉE]cole\s+franco[-\s]?arabe\b|\bfranco[-\s]arabe\b'
+    case_insensitive: true
+    label: private-religious
+    confidence: medium
+    notes: |
+      Franco-arabe schools in Benin lean private but the population is small
+      enough that medium confidence is appropriate; a future EMIS match should
+      override.
+    examples_positive: ["École franco-arabe Cotonou", "Complexe scolaire franco arabe"]
+    examples_negative: ["EPP", "CEG"]
+
+  - id: name_islamique
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '\b[ÉE]cole\s+islamique\b|\binstitut\s+islamique\b'
+    case_insensitive: true
+    label: private-religious
+    confidence: high
+    notes: |
+      Self-identifies. High confidence.
+    examples_positive: ["École islamique Al Houda", "Institut islamique de Cotonou"]
+    examples_negative: ["EPP", "Lycée Behanzin"]
+
+  - id: name_evangelical
+    countries: [BEN]
+    applies_to_field: name_any
+    match_type: regex
+    pattern: '\b(Baptiste|Pentec[ôo]tiste|[ÉéEe]vang[ée]lique|Protestante)\b'
+    case_insensitive: true
+    label: private-religious
+    confidence: medium
+    notes: |
+      Evangelical / protestant denominations indicate private-religious in Benin.
+    examples_positive: ["École Baptiste Cotonou", "Complexe scolaire évangélique"]
+    examples_negative: ["EPP Cotonou", "CEG Adjarra"]
